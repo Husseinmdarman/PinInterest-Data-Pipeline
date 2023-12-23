@@ -19,4 +19,8 @@ Geo()
 
 ## The Data and Kafka
 
-The data will be stored in three topics, <user_id>.pin, <user_id>.geo, <user_id>.user, which will later be fed into further systems in the future
+The data will be stored in three topics, <user_id>.pin, <user_id>.geo, <user_id>.user, which will later be fed into further systems in the future. To further seperate out concerns, MSK Connect is a feature of AWS MSK, that allows users to stream data to and from their MSK-hosted Apache Kafka clusters. Therefore to take advantage of this first, Confluent IO needs to be downloaded on the EC2 instance then hosted in a S3 bucket for plugin and connector creation, MSK Connect will continuously monitor the connectors health and delivery state, as well as manage the underlying hardware, and autoscale the connectors to match changes in data load
+
+![Kafka Bucket with Confluent IO](image.png)
+
+![creation of plugin and connector](image-1.png)
