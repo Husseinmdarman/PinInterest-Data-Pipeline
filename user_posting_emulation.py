@@ -61,7 +61,6 @@ def run_infinite_post_data_loop():
             print(geo_result)
             print('******************************************************************')
             print(user_result)
-            response = requests.request("POST","https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test", data=pin_result)
 
 
 
