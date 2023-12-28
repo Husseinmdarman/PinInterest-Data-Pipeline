@@ -6,6 +6,7 @@ import boto3
 import json
 import sqlalchemy
 from sqlalchemy import text
+from datetime import date, datetime
 
 
 random.seed(100)
@@ -30,7 +31,6 @@ new_connector = AWSDBConnector()
 
 
 def run_infinite_post_data_loop():
-    count = 0
     while True:
         sleep(random.randrange(0, 2))
         random_row = random.randint(0, 11000)
@@ -55,13 +55,38 @@ def run_infinite_post_data_loop():
             
             for row in user_selected_row:
                 user_result = dict(row._mapping)
-            print('******************************************************************')
-            print(pin_result)
-            print('******************************************************************')
-            print(geo_result)
-            print('******************************************************************')
-            print(user_result)
 
+            
+            invoke_url = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/'
+  
+            for row in user_selected_row:
+                user_result = dict(row._mapping)
+
+            payload_pin = json.dumps({ "records": [{"value": pin_result}] }, default= json_serial)
+            payload_geo = json.dumps({ "records": [{"value": geo_result}] }, default= json_serial)
+            payload_user = json.dumps({ "records": [{"value": user_result}] }, default= json_serial)
+
+            headers = {'Content-Type': 'application/vnd.kafka.json.v2+json'}
+            topic_pin = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.pin'
+            topic_geo = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.geo'
+            topic_user = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.user'
+            
+            payload_list = [payload_pin, payload_geo, payload_user]
+            topic_url_list = [topic_pin, topic_geo, topic_user]
+
+            for payload, invoke_url in zip(payload_list,topic_url_list):
+                response = requests.request("POST", invoke_url, headers=headers, data=payload)
+                print(response.content)
+
+                
+            
+            
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError ("Type %s not serializable" % type(obj))
 
 
 if __name__ == "__main__":
