@@ -66,17 +66,41 @@ def run_infinite_post_data_loop():
             payload_geo = json.dumps({ "records": [{"value": geo_result}] }, default= json_serial)
             payload_user = json.dumps({ "records": [{"value": user_result}] }, default= json_serial)
 
+            stream_name_pin = 'streaming-12e255fc4fcd-pin'
+            stream_name_geo = 'streaming-12e255fc4fcd-geo'
+            stream_name_user = 'streaming-12e255fc4fcd-user'
+
+            kinesis_payload_pin = json.dumps({"StreamName": f'{stream_name_pin}',"Data": pin_result,"PartitionKey": "partition-1"}, default= json_serial)
+            kinesis_payload_geo = json.dumps({"StreamName": f'{stream_name_geo}',"Data": geo_result,"PartitionKey": "partition-1"}, default= json_serial)
+            kinesis_payload_user = json.dumps({"StreamName": f'{stream_name_user}',"Data": user_result,"PartitionKey": "partition-1"}, default= json_serial)
+            
             headers = {'Content-Type': 'application/vnd.kafka.json.v2+json'}
+            
+            headers_kinesis = {'Content-Type': 'application/json'}
+            
             topic_pin = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.pin'
             topic_geo = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.geo'
             topic_user = 'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/topics/12e255fc4fcd.user'
+
+            kinesis_datastream_pin_url = f'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/streams/{stream_name_pin}/record'
+            kinesis_datastream_geo_url = f'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/streams/{stream_name_geo}/record'
+            kinesis_datastream_user_url = f'https://zoph9lewfc.execute-api.us-east-1.amazonaws.com/test/streams/{stream_name_user}/record'
             
             payload_list = [payload_pin, payload_geo, payload_user]
             topic_url_list = [topic_pin, topic_geo, topic_user]
 
+            kinesis_payload_list = [kinesis_payload_pin, kinesis_payload_geo, kinesis_payload_user]
+            kinesis_stream_url_list = [kinesis_datastream_pin_url, kinesis_datastream_geo_url, kinesis_datastream_user_url]
+
             for payload, invoke_url in zip(payload_list,topic_url_list):
                 response = requests.request("POST", invoke_url, headers=headers, data=payload)
                 print(response.content)
+            
+            for kinesis_payload, kinesis_invoke_url in zip(kinesis_payload_list, kinesis_stream_url_list):
+                print(kinesis_invoke_url)
+                response = requests.request("PUT", kinesis_invoke_url, headers=headers_kinesis, data=kinesis_payload)
+                print(response.content)
+
 
                 
             
