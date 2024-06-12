@@ -100,6 +100,7 @@ def run_infinite_post_data_loop():
                 print(kinesis_invoke_url)
                 response = requests.request("PUT", kinesis_invoke_url, headers=headers_kinesis, data=kinesis_payload)
                 print(response.content)
+                print(response.status_code)
 
 
                 
@@ -116,7 +117,4 @@ def json_serial(obj):
 if __name__ == "__main__":
     run_infinite_post_data_loop()
     print('Working')
-    
-    
-
 
