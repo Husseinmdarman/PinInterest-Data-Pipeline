@@ -341,7 +341,7 @@ The three calls to the database using the execute method are as follows:
 2. `SELECT * FROM geolocation_data LIMIT {random_row}, 1`
 3. `SELECT * FROM user_data LIMIT {random_row}, 1`
 
-From the CursorResult object, have to extract the actual data by running a for loop:
+From the CursorResult object, to extract the actual data needed, will by running a for loop to gain access to the result set:
 
 ```
 for row in pin_selected_row:
@@ -354,9 +354,18 @@ These results will need to be correctly serialized to a JSON formatted string wh
 
 `payload_pin = json.dumps({ "records": [{"value": pin_result}] }, default= json_serial)`
 
-the default is json_serial which is a custom method for object that are not serializable by JSON
+the default is a customer json_serial which is for objects that are not serializable by JSON in this case it will be for the datetime columns contained in each result set
 
-Finally to send the data, define the header, the link to the previously created proxy:
+```
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError ("Type %s not serializable" % type(obj))
+
+```
+Finally to send the data, define the header and the link to the previously created proxy:
 
 `headers = {'Content-Type': 'application/vnd.kafka.json.v2+json'}`
 
@@ -375,3 +384,202 @@ contains the JSON data:
 
 ![The three created topics](image-6.png)
 ![The json data in the bbucket](image-7.png)
+
+## Batch processing data using Apache Spark on Databricks
+
+The previous created topics inside the S3 bucket. Will need to be mounted to gain access for batch processing in Databricks. To achieve this: 
+
+1. Creating an access key and a secret access key for Databricks in AWS
+2. Mounting Databricks to a AWS S3 bucket
+3. Reading JSON files from mounted S3 bucket
+
+### Creating an access key and secret access key for Databricks
+
+Access the IAM console 
+
+![IAM Console](image-8.png)
+
+Under user mangement, add user and then attach the existing policy *AmazonS3FullAccess* then skip sections till review page and click create users. 
+
+Now within the security credentials, select create access key:
+
+![Create access key](image-9.png)
+
+Now download this secret key for later use in databricks
+
+![Download](image-10.png)
+
+### Upload credentials to databricks
+
+1. In the Databricks UI, click the Catalog icon and then click + Add --> Add data button. This should redirect you to the following page:
+
+![Databricks UI](image-11.png)
+
+2. Click on Create or modify table and then drop the credentials file you have just downloaded from AWS. Once the file has been successfully uploaded, click Create table to finalize the process.
+
+the credentials will be uploaded in the following location: dbfs:/user/hive/warehouse/.
+
+### Mounting the S3 bucket
+
+In order to batch process the data, it will need to be first mounted to databricks. This is done in this notebook
+*[MountingS3Bucket.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/MountingS3Bucket.py)* 
+
+The steps carried out in this notebook are as follows:
+
+1.  Check if mount point exists and if it does already it removes it using the method `def sub_unmount(str_path)`
+2.  Imports the neccassary libraries
+3.  Creates a delta path to the authentication_credentials previously uploaded to databricks
+4.  Programatically extract the credentials safely 
+
+``` 
+# Get the AWS access key and secret key from the spark dataframe
+ACCESS_KEY = aws_keys_df.select('Access key ID').collect()[0]['Access key ID']
+SECRET_KEY = aws_keys_df.select('Secret access key').collect()[0]['Secret access key']
+# Encode the secrete key
+ENCODED_SECRET_KEY = urllib.parse.quote(string=SECRET_KEY, safe="") 
+
+```
+
+5. Next using these credentials, mount the s3 bucket
+
+```
+# AWS S3 bucket name
+AWS_S3_BUCKET = "user-12e255fc4fcd-bucket"
+# Mount name for the bucket
+MOUNT_NAME = "/mnt/mount_name_hussein"
+# Source url
+SOURCE_URL = "s3n://{0}:{1}@{2}".format(ACCESS_KEY, ENCODED_SECRET_KEY, AWS_S3_BUCKET)
+# Mount the drive
+dbutils.fs.mount(SOURCE_URL, MOUNT_NAME)
+```
+
+### Mounted S3 bucket into seperate dataframes 
+
+The mounted S3 bucket contains 3 different topics representing the three key outlined data. This uncleaned data needs to be put into their own respective dataframes which is accomplished with the help of this notebook:
+
+*[LoadingUncleanedTables.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/LoadingUncleanedTables.py)* 
+
+This notebook achieves the following: 
+
+1. Using the mounted S3 bucket, the three topics have their own file locations which will need to be set before reading into their respective dataframes
+
+```
+file_location_geo = "/mnt/mount_name_hussein/topics/12e255fc4fcd.geo/partition=0/*.json"
+file_location_user = "/mnt/mount_name_hussein/topics/12e255fc4fcd.user/partition=0/*.json"
+file_location_pin = "/mnt/mount_name_hussein/topics/12e255fc4fcd.pin/partition=0/*.json"
+``
+
+2. Using these file location, by assuming the file type will always be json and asking spark to infer the schema. We create the three dataframes
+
+```
+### Read in JSONs from mounted S3 bucket
+```
+df_geo = spark.read.format(file_type) \
+.option("inferSchema", infer_schema) \
+.load(file_location_geo)
+
+df_user = spark.read.format(file_type) \
+.option("inferSchema", infer_schema) \
+.load(file_location_user)
+
+df_pin = spark.read.format(file_type) \
+.option("inferSchema", infer_schema) \
+.load(file_location_pin)
+```
+3. Finally the use of a globaltempview will enable these tables to be shared across notebooks helping with decoupling the importance of each notebook down to its intended function
+
+```
+create global temp views of each uncleaned table to be used for their respective
+#cleaning notebooks
+df_user.createOrReplaceGlobalTempView("user_uncleaned")
+df_geo.createOrReplaceGlobalTempView("geo_uncleaned")
+df_pin.createOrReplaceGlobalTempView("pin_uncleaned")
+```
+## Cleaning the data using spark
+
+The three previously created temp view tables will need to be cleaned before any insight is gained from this data.The cleaning is done in three different notebooks *[CleaningGeoDF.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/CleaningGeoDF.py)* ,*[CleaningPinDF.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/CleaningPinDF.py)* , *[CleaningUserDF.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/CleaningUserDF.py)* 
+
+I will be going through each of the cleaning steps taken in their respective notebooks:
+
+1. CleaningGeoDF: 
+Creation of a new column *coordinates* that contains an array based on the *latitude* and *longitude* column
+Converting the timestamp column from a string to a timestamp data type
+Finally reordering of columns in this order: 'ind','country','coordinates','timestamp'
+
+2. CleaningPinDF
+
+Removal of non relevant data for each column. The non-relevant data has been indentified as the following:
+
+"description": "No description available",
+"follower_count": "User Info Error",
+"img_src": "Image src error.",
+"poster_name": "User Info Error",
+"tag_list": "N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e",
+"title": "No Title Data Available"
+
+This non-relevant data is stored in a dictionary to be used as a lookup for non-relevant data
+
+```
+for column in df_pin.columns: #the column names 
+    if (column in pin_df_non_relevant_entries): #checks whether that column name has any specificied entry in non-relevant data
+        
+        df_pin = df_pin.withColumn(f"{column}", f.when(f.col(f"{column}") == pin_df_non_relevant_entries[column], None).otherwise(f.col(f"{column}"))) 
+        #finds the column entry value where its equal to the non-relevant data and changes it to None otherwise it keeps the same value
+
+#due to the in feature being unsuupported the second piece of non-relevant data needs its own line
+df_pin = df_pin.withColumn("description", f.when(f.col("description") == "No description available Story format", None).otherwise(f.col("description"))) 
+
+```
+
+The next step, is to change the follower count to an actual number for example 2k is 2000 after cleaning steps taken:
+```
+#Perform the necessary transformations on the follower_count to ensure every entry is a number. Make sure the data type of this column is an int, the int count has K representing 3 zeros and M representing 6 zeros therefore needs replacing before casting
+
+df_pin = df_pin.withColumn("follower_count", f.regexp_replace('follower_count', r'[k]', '000')) #replaces the value of K with 3 zeros
+df_pin = df_pin.withColumn("follower_count", f.regexp_replace('follower_count', r'[M]', '000000')) #replaces the value of M with 6 zeros
+df_pin =df_pin.withColumn("follower_count", f.col('follower_count').cast("int")) #can cast the column to a interger now that all values in the string are in a numeric form
+```
+
+Next the saved location has the location of the file path but also has a piece of added on that says 'local save in' which needs to be cleaned from every row in that saved location column which is done by 
+
+```
+#Clean the data in the save_location column to include only the save location path
+df_pin = df_pin.withColumn("save_location", f.regexp_replace('save_location','Local save in ', ''))
+```
+
+Next we rename the index column to ind
+
+```
+#Rename the index column to ind.
+df_pin = df_pin.withColumnRenamed('index', 'ind')
+```
+
+Finally we check if all numeric columns are numeric then order the column in this order *"ind", "unique_id", "title", "description", "follower_count", "poster_name", "tag_list", "is_image_or_video", "image_src", "save_location", "category"*
+
+3. CleaningUserDF
+
+Create a new column username by concating the first and last names of each user then drop those two previous columns
+
+```
+#Create a new column user_name that concatenates the information found in the first_name and last_name columns
+df_user = df_user.withColumn('user_name', f.concat(f.col("first_name"),f.col("last_name")))
+#Drop the first_name and last_name columns from the DataFrame
+
+df_user = df_user.drop(*["first_name", "last_name"])
+
+```
+Conver the data joined column from string to timestamp datetime and reorder the column
+
+```
+#Convert the date_joined column from a string to a timestamp data type
+df_user = df_user.withColumn("date_joined", f.to_timestamp("date_joined", format= "yyyy-MM-dd'T'HH:mm:ss"))
+#Reorder the DataFrame columns to have the following column order: ind,user_name,age,date_joined
+df_user = df_user.selectExpr('ind','user_name','age','date_joined')
+```
+
+All three dataframes are now cleaned and ready to process business logic against and again to allow future notebooks to use it across databricks we created a global temp view per table
+```
+df_user.createOrReplaceGlobalTempView("user")
+df_user.createOrReplaceGlobalTempView("geo")
+df_user.createOrReplaceGlobalTempView("pin")
+```
