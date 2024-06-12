@@ -6,9 +6,9 @@
 
 In order to run this project the following needs to be installed:
 
-1. python-dotenv
-2. sqlalchemy
-3. requests
+* python-dotenv
+* sqlalchemy
+* requests
 
 If you are using Anaconda and virtual environments (recommended), the Conda environment can be cloned by running the following command, ensuring that env.yml is present in the project:
 
@@ -88,7 +88,7 @@ Navigate to the AWS IAM dashboard, select 'Roles' from the left-hand menu and th
 Select 'AWS service' and 'EC2', then click on 'Next'.
 On the next page, select 'Create policy'.
 In the policy editor, choose JSON format and paste in the following policy. Note: this policy is somewhat open - a more restrictive policy would be more appropriate for a production environment
-''''
+'''
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -131,7 +131,7 @@ In the policy editor, choose JSON format and paste in the following policy. Note
         }
     ]
 }
-''''
+'''
 1. On the next page, give the policy a descriptive name and save the policy.
 2. Back in the create role tab in the browser, click refresh to show the new policy and select the policy.
 3. Click 'Next', give the role a descriptive name and save the role.
