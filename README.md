@@ -12,7 +12,7 @@ In order to run this project the following needs to be installed:
 
 If you are using Anaconda and virtual environments (recommended), the Conda environment can be cloned by running the following command, ensuring that env.yml is present in the project:
 
-'conda create env -f env.yml -n $ENVIRONMENT_NAME'
+`conda create env -f env.yml -n $ENVIRONMENT_NAME`
 
 ## Tools Used
 
@@ -66,6 +66,31 @@ AWS Kinesis -
 ![image](CloudPinterestPipeline.png)
 
 
+## The Data:
+
+The kind of data that Pinterest's engineers are working with, is contained in this project, which contains a script, *user_posting_emulation_to_console.py* that is run from the terminal to mimics the stream of random data points received by the Pinterest API when POST requests are made by users uploading data to Pinterest
+
+Running the script instantiates a database connector class, which is used to connect to an AWS RDS database containing the following tables:
+
+* pinterest_data contains data about posts being updated to Pinterest
+* geolocation_data contains data about the geolocation of each Pinterest post found in pinterest_data
+* user_data contains data about the user that has uploaded each post found in pinterest_data
+
+The run_infinite_post_data_loop() method, infinitely iterates at random intervals between 0 and 2 seconds, selecting all columns of a random row from each of the three tables and writing the data to a dictionary. The three dictionaries are then printed to the console.
+
+<ins>Examples of the three data: <ins>
+
+1. pinterest_data 
+
+`{'index': 7528, 'unique_id': 'fbe53c66-3442-4773-b19e-d3ec6f54dddf', 'title': 'No Title Data Available', 'description': 'No description available Story format', 'poster_name': 'User Info Error', 'follower_count': 'User Info Error', 'tag_list': 'N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e', 'is_image_or_video': 'multi-video(story page format)', 'image_src': 'Image src error.', 'downloaded': 0, 'save_location': 'Local save in /data/mens-fashion', 'category': 'mens-fashion'}`
+
+2. geolocation_data
+
+`{'ind': 7528, 'timestamp': datetime.datetime(2020, 8, 28, 3, 52, 47), 'latitude': -89.9787, 'longitude': -173.293, 'country': 'Albania'}`
+
+3. user_data
+
+`{'ind': 7528, 'first_name': 'Abigail', 'last_name': 'Ali', 'age': 20, 'date_joined': datetime.datetime(2015, 10, 24, 11, 23, 51)}`
 
 ## Pre-requistes 
 
@@ -163,13 +188,14 @@ Due to the key-pair.pem file created earlier Key pairs it will play a significan
 ## IAM authenticated MSK cluster
 
 MSK cluster configuration settings: 
-
+```
 Cluster type: Provisioned
 Apache Kafka version: 2.8.1
 Broker type: kafka.m5.large
 EBS storage volume per broker: 100 GiB
 Brokers per zone: 1
 Total number of brokers: 3
+```
 
 Connect to the EC2 instance via SSH
 
@@ -188,17 +214,22 @@ Within the bin folder of the kafka installation folder, `nano client.properties`
 client.properties:
 ```
 # Sets up TLS for encryption and SASL for authN.
-security.protocol = SASL_SSL
+
+`security.protocol = SASL_SSL`
 
 # Identifies the SASL mechanism to use.
-sasl.mechanism = AWS_MSK_IAM
+
+`sasl.mechanism = AWS_MSK_IAM`
 
 # Binds SASL client implementation.
-sasl.jaas.config = software.amazon.msk.auth.iam.IAMLoginModule required awsRoleArn="arn:aws:iam::584739742957:role/12e2$
+
+`sasl.jaas.config = software.amazon.msk.auth.iam.IAMLoginModule required awsRoleArn="arn:aws:iam::584739742957:role/12e2$`
 
 # Encapsulates constructing a SigV4 signature based on extracted credentials.
+
 # The SASL client bound by "sasl.jaas.config" invokes this class.
-sasl.client.callback.handler.class = software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+`sasl.client.callback.handler.class = software.amazon.msk.auth.iam.IAMClientCallbackHandler`
 ```
 ## Creation of Kafka topics
 
