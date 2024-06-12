@@ -1,6 +1,6 @@
 ## PinInterest-Data-Pipeline
 
-### The Pinterest data pipeline, crunches billions of data points every day to decide and faciliate how to provide more value to their users base. Through the use of cloud providers and a distributed event store and stream-processing platform such as Kafka, I will mimick a data-engineering project that will handle a similar workload
+####  *The Pinterest data pipeline, crunches billions of data points every day to decide and faciliate how to provide more value to their users base. Through the use of cloud providers and a distributed event store and stream-processing platform such as Kafka, I will mimick a data-engineering project that will handle a similar workload*
 
 ## Project Dependencies
 
@@ -63,7 +63,7 @@ AWS Kinesis -
 
 ## Architecture: PinInterest Data Pipeline
 
-![image](CloudPinterestPipeline.png)
+![images/image](CloudPinterestPipeline.png)
 
 
 ## The Data:
@@ -200,11 +200,11 @@ Total number of brokers: 3
 Connect to the EC2 instance via SSH
 
 By using the previous key-pair.pem, connect to the EC2 instance
-![Connecting to EC2 instance](image-2.png)
+![Connecting to EC2 instance](images/image-2.png)
 After connection is successful run this command  `sudo yum install java-1.8.0 `
-![Install Java by running this command](image-3.png)
+![Install Java by running this command](images/image-3.png)
 Download Kafka on to the EC2 instance run this command  `wget https://archive.apache.org/dist/kafka/2.8.1/kafka_2.12-2.8.1.tgz `
-![downloading kafka instance](image-4.png)
+![downloading kafka instance](images/image-4.png)
 Next, navigate to Kafka installation folder and then in the libs folder. Inside here, download the IAM MSK authentication package from Github running this command  `wget https://github.com/aws/aws-msk-iam-auth/releases/download/v1.1.5/aws-msk-iam-auth-1.1.5-all.jar`
 
 Setting up CLASSPATH in `nano ~/.bashrc` and within the bash file add `export CLASSPATH=/home/ec2-user/kafka_2.12-2.8.1/libs/aws-msk-iam-auth-1.1.5-all.jar`, This will ensure that the Kafka client can seamlessly access the Amazon MSK IAM libraries and it will be executed automatically whenever a new session is started for that user.
@@ -259,7 +259,7 @@ aws s3 cp ./confluentinc-kafka-connect-s3-10.0.3.zip s3://user-12e255fc4fcd-buck
 ```
 In the MSK console and select Custom plugins under the MSK Connect section. Choose Create custom plugin. Create the Custom plugin by selecting the confluent-connect zip inside the S3 bucket
 
-![AWS MSK Connector plugin](image-5.png)
+![AWS MSK Connector plugin](images/image-5.png)
 
 The connector configuration settings are defined as follows: 
 
@@ -382,8 +382,8 @@ for payload, invoke_url in zip(payload_list,topic_url_list):
 This should now be viewable inside the S3 buckets, where the bucket contains each topic and within each topics subfolder
 contains the JSON data: 
 
-![The three created topics](image-6.png)
-![The json data in the bbucket](image-7.png)
+![The three created topics](images/image-6.png)
+![The json data in the bbucket](images/image-7.png)
 
 ## Batch processing data using Apache Spark on Databricks
 
@@ -397,23 +397,23 @@ The previous created topics inside the S3 bucket. Will need to be mounted to gai
 
 Access the IAM console 
 
-![IAM Console](image-8.png)
+![IAM Console](images/image-8.png)
 
 Under user mangement, add user and then attach the existing policy *AmazonS3FullAccess* then skip sections till review page and click create users. 
 
 Now within the security credentials, select create access key:
 
-![Create access key](image-9.png)
+![Create access key](images/image-9.png)
 
 Now download this secret key for later use in databricks
 
-![Download](image-10.png)
+![Download](images/image-10.png)
 
 ### Upload credentials to databricks
 
 1. In the Databricks UI, click the Catalog icon and then click + Add --> Add data button. This should redirect you to the following page:
 
-![Databricks UI](image-11.png)
+![Databricks UI](images/image-11.png)
 
 2. Click on Create or modify table and then drop the credentials file you have just downloaded from AWS. Once the file has been successfully uploaded, click Create table to finalize the process.
 
@@ -595,11 +595,11 @@ Using this cleaned data, the relationships between the data can be used to answe
 
 MWAA was used to automate the process of running the batch processing on Databricks. The file *[12e255fc4fcd_dag.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/12e255fc4fcd_dag.py)* is the Python code for a directed acyclic graph (DAG) that orchestrates the running of the batch processing notebook described above. The file was uploaded to the MWAA environment, where Airflow is utilised to connect to and run the Databricks notebook at scheduled intervals, in this case @daily.
 
-![Picture of dag structure](image-12.png)
+![Picture of dag structure](images/image-12.png)
 
 Further in this scenario I have opted to include all the cleaning tasks in their own task groups to avoid any issues downstream when one cleaning task fails, all of them do to minimise any errors in future analysis of the data
 
-![Taskgroup](image-13.png)
+![Taskgroup](images/image-13.png)
 
 ## Processing Streaming Data
 
@@ -609,13 +609,13 @@ To mimic streaming data, we will need to send the three pieces of data to their 
 
 1. From the kinesis dashboard select create stream
 
-![Select Create stream](image-14.png)
+![Select Create stream](images/image-14.png)
 
 2. Give the stream name, in this respect it will be user, geo and pin and select 'Provisioned' Capactiy type.
 
 This will mean that there will be three data streams for the three different data we have at hand.
 
-![3 different data streams](image-15.png)
+![3 different data streams](images/image-15.png)
 
 ## Stream data down to their respective data streams via API
 
@@ -734,7 +734,7 @@ PUT
 }
 After creating the new resources and methods, the API must be redeployed. To ensure all the changes are made and actve on the API
 
-![Overall Architecture of API](image-16.png)
+![Overall Architecture of API](images/image-16.png)
 
 ### Sending Data to the streams
 
