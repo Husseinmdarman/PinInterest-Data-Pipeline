@@ -20,7 +20,9 @@ Apache Kafka - Apache Kafka is an event streaming platform. From the Kafka docum
 
 > Event streaming is the practice of capturing data in real-time from event sources like databases, sensors, mobile devices, cloud services, and software applications in the form of streams of events; storing these event streams durably for later retrieval; manipulating, processing, and reacting to the event streams in real-time as well as retrospectively; and routing the event streams to different destination technologies as needed. Event streaming thus ensures a continuous flow and interpretation of data so that the right information is at the right place, at the right time.
 
-AWS MSK - Amazon Managed Streaming for Apache Kafka (Amazon MSK) is a fully managed service that enables you to build and run applications that use Apache Kafka to process streaming data. More information can be found in the developer guide.
+AWS MSK - Amazon Managed Streaming for Apache Kafka (Amazon MSK) is 
+
+> a fully managed service that enables you to build and run applications that use Apache Kafka to process streaming data. More information can be found in the developer guide.
 
 AWS MSK Connect - MSK Connect is a feature of Amazon MSK that makes it easy for developers to stream data to and from their Apache Kafka clusters. From the developer guide:
 
@@ -88,8 +90,9 @@ Navigate to the AWS IAM dashboard, select 'Roles' from the left-hand menu and th
 Select 'AWS service' and 'EC2', then click on 'Next'.
 On the next page, select 'Create policy'.
 In the policy editor, choose JSON format and paste in the following policy. Note: this policy is somewhat open - a more restrictive policy would be more appropriate for a production environment
-'''
-{
+
+
+''' {
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -130,8 +133,7 @@ In the policy editor, choose JSON format and paste in the following policy. Note
             ]
         }
     ]
-}
-'''
+}'''
 1. On the next page, give the policy a descriptive name and save the policy.
 2. Back in the create role tab in the browser, click refresh to show the new policy and select the policy.
 3. Click 'Next', give the role a descriptive name and save the role.
