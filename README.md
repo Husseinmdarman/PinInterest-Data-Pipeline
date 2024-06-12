@@ -1,6 +1,6 @@
 ## PinInterest-Data-Pipeline
 
-# The Pinterest data pipeline, crunches billions of data points every day to decide and faciliate how to provide more value to their users base. Through the use of cloud providers and a distributed event store and stream-processing platform such as Kafka, I will mimick a data-engineering project that will handle a similar workload
+### The Pinterest data pipeline, crunches billions of data points every day to decide and faciliate how to provide more value to their users base. Through the use of cloud providers and a distributed event store and stream-processing platform such as Kafka, I will mimick a data-engineering project that will handle a similar workload
 
 ## Project Dependencies
 
@@ -88,7 +88,7 @@ Navigate to the AWS IAM dashboard, select 'Roles' from the left-hand menu and th
 Select 'AWS service' and 'EC2', then click on 'Next'.
 On the next page, select 'Create policy'.
 In the policy editor, choose JSON format and paste in the following policy. Note: this policy is somewhat open - a more restrictive policy would be more appropriate for a production environment
-
+''''
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -131,6 +131,7 @@ In the policy editor, choose JSON format and paste in the following policy. Note
         }
     ]
 }
+''''
 1. On the next page, give the policy a descriptive name and save the policy.
 2. Back in the create role tab in the browser, click refresh to show the new policy and select the policy.
 3. Click 'Next', give the role a descriptive name and save the role.
