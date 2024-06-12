@@ -510,12 +510,13 @@ Finally reordering of columns in this order: 'ind','country','coordinates','time
 
 Removal of non relevant data for each column. The non-relevant data has been indentified as the following:
 
-"description": "No description available",
-"follower_count": "User Info Error",
-"img_src": "Image src error.",
-"poster_name": "User Info Error",
-"tag_list": "N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e",
-"title": "No Title Data Available"
+
+* "description": "No description available",
+* "follower_count": "User Info Error",
+* "img_src": "Image src error.",
+* "poster_name": "User Info Error",
+* "tag_list": "N,o, ,T,a,g,s, ,A,v,a,i,l,a,b,l,e",
+* "title": "No Title Data Available"
 
 This non-relevant data is stored in a dictionary to be used as a lookup for non-relevant data
 
@@ -583,3 +584,193 @@ df_user.createOrReplaceGlobalTempView("user")
 df_user.createOrReplaceGlobalTempView("geo")
 df_user.createOrReplaceGlobalTempView("pin")
 ```
+
+## Batch processing: Answering Business Questions
+
+Using this cleaned data, the relationships between the data can be used to answer business logic questions. These types of questions and analysis of the data is stored in the following notebook:
+
+*[Questions Answered About Pinterest Data (1).ipynb](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/Databricks%20Notebooks/Questions%20Answered%20About%20Pinterest%20Data%20(1).ipynb)*
+
+## Orchestrating automated workflow of notebook on databricks
+
+MWAA was used to automate the process of running the batch processing on Databricks. The file *[12e255fc4fcd_dag.py](https://github.com/Husseinmdarman/PinInterest-Data-Pipeline/blob/main/12e255fc4fcd_dag.py)* is the Python code for a directed acyclic graph (DAG) that orchestrates the running of the batch processing notebook described above. The file was uploaded to the MWAA environment, where Airflow is utilised to connect to and run the Databricks notebook at scheduled intervals, in this case @daily.
+
+![Picture of dag structure](image-12.png)
+
+Further in this scenario I have opted to include all the cleaning tasks in their own task groups to avoid any issues downstream when one cleaning task fails, all of them do to minimise any errors in future analysis of the data
+
+![Taskgroup](image-13.png)
+
+## Processing Streaming Data
+
+### Creating streams on kinesis
+
+To mimic streaming data, we will need to send the three pieces of data to their respective streams but before that we will need to create each stream.
+
+1. From the kinesis dashboard select create stream
+
+![Select Create stream](image-14.png)
+
+2. Give the stream name, in this respect it will be user, geo and pin and select 'Provisioned' Capactiy type.
+
+This will mean that there will be three data streams for the three different data we have at hand.
+
+![3 different data streams](image-15.png)
+
+## Stream data down to their respective data streams via API
+
+The API should be able to invoke the following actions:
+
+List streams in Kinesis
+Create, describe and delete streams in Kinesis
+Add records to streams in Kinesis
+
+Therefore need to build on top of the previously created API for the batch processing data to include streaming data. This resource will need the following kinesis actions
+
+1. ListStreams
+2. Create, describe and delete streams in Kinesis
+3. Add records to streams in Kinesis
+
+### ListStreams Action made into Resource on API
+
+First we provision a new resource under the API,  which will be named streams
+
+1. For Integration type select AWS Service
+2. For AWS Region choose us-east-1
+3. For AWS Service select Kinesis,
+4. For HTTP method select POST (as we will have to invoke Kinesis's ListStreams action)
+5. For Action Type select User action name
+6. For Action name type ListStreams
+7. For Execution role will be the ARN of your Kinesis Access Role
+
+Next head to URL request headers parameters panel and select the following options:
+
+1. Under Name type Content-Type
+2. Under Mapped form type 'application/x-amz-json-1.1'
+3. Click the Add request header parameter button
+
+Expand the Mapping Templates panel and select the following options:
+
+1. Choose Add mapping template button
+2. Under Content-Type type application/json
+3. Under Template body type {} in the template editor
+
+### Create, describe and delete streams in Kinesis.
+
+Within the same resource as the previously created listStreams action, Create another resource named *stream-name* which will further contain the create, describe and delete action names.
+
+The settings used for the DELETE method were:
+```
+'Integration Type': 'AWS Service'
+'AWS Region': 'us-east-1'
+'AWS Service': 'Kinesis'
+'HTTP method': 'POST'
+'Action': 'DeleteStream'
+'Execution role': 'arn of IAM role created'
+```
+In 'Integration Request' under 'HTTP Headers', add a new header:
+
+`'Name': 'Content-Type'`
+`'Mapped from': 'application/x-amz-json-1.1'`
+
+Under 'Mapping Templates', add new mapping template:
+
+`'Content Type': 'application/json'`
+
+Use the following code in the template:
+```
+{
+    "StreamName": "$input.params('stream-name')"
+}
+```
+
+The same setting were used for the create and describe methods where only their mapping template and action names are different
+
+The create method has an action name of CreateStream and mapping template of
+```
+{
+    "ShardCount": #if($input.path('$.ShardCount') == '') 5 #else $input.path('$.ShardCount') #end,
+    "StreamName": "$input.params('stream-name')"
+}
+```
+The describe method has a action name of DescribeStream and mapping template of
+
+```
+{
+    "StreamName": "$input.params('stream-name')"
+}
+
+```
+
+### Add records to the stream
+
+Now when adding a record to the stream there are two ways, inputting a single record or multiple records which are defined as action names PutRecord and PutRecords. The have the same configuration as previously with subtle changes to action name and mapping template
+
+/record
+
+PUT
+'Action': 'PutRecord'
+'Mapping Template':
+{
+    "StreamName": "$input.params('stream-name')",
+    "Data": "$util.base64Encode($input.json('$.Data'))",
+    "PartitionKey": "$input.path('$.PartitionKey')"
+}
+/records
+
+PUT
+'Action': 'PutRecords'
+'Mapping Template':
+{
+    "StreamName": "$input.params('stream-name')",
+    "Records": [
+       #foreach($elem in $input.path('$.records'))
+          {
+            "Data": "$util.base64Encode($elem.data)",
+            "PartitionKey": "$elem.partition-key"
+          }#if($foreach.hasNext),#end
+        #end
+    ]
+}
+After creating the new resources and methods, the API must be redeployed. To ensure all the changes are made and actve on the API
+
+![Overall Architecture of API](image-16.png)
+
+### Sending Data to the streams
+
+Now that the API and data streams are setup, the script user_posting_emulation_stream_data.py needs some modifications to enable kinesis data to be sent. 
+```
+kinesis_payload_pin = json.dumps({"StreamName": f'{stream_name_pin}',"Data": pin_result,"PartitionKey": "partition-1"}, default= json_serial)
+
+kinesis_payload_geo = json.dumps({"StreamName": f'{stream_name_geo}',"Data": geo_result,"PartitionKey": "partition-1"}, default= json_serial)
+
+kinesis_payload_user = json.dumps({"StreamName": f'{stream_name_user}',"Data": user_result,"PartitionKey": "partition-1"}, default= json_serial)
+```
+This code block does the following, it creates JSON payload for each data record. Then packages it ready for consumption by our API 
+
+```
+ for kinesis_payload, kinesis_invoke_url in zip(kinesis_payload_list, kinesis_stream_url_list):
+                print(kinesis_invoke_url)
+                response = requests.request("PUT", kinesis_invoke_url, headers=headers_kinesis, data=kinesis_payload)
+                print(response.content)
+                print(response.status_code)
+```
+
+Finally it sends each record to their respective link in this for loop. 
+
+### Processing the kinesis data
+
+The Jupyter notebook process_kinesis_data_streams.ipynb contains all the code necessary for retrieving the streams from Kinesis, transforming (cleaning) the data, and then loading the data into Delta tables on the Databricks cluster. The steps taken in the code are:
+
+Import necessary functions and types
+List tables in Databricks filestore in order to obtain AWS credentials file name
+Read the credentials .csv into a Spark dataframe
+Generate credential variables from Spark dataframe
+Read each three kinesis data stream
+Clean all three streams
+Display the streams
+Write the streams to Delta tables
+
+## Next Steps
+
+To further investigate the relationship between data engineers and data analyst. We can improve this project to further query the streaming data and visualise the data using a tool such as Tableau or Power BI. To further 'production-ise' the code, I'd need to tighten up the IAM policies described
